@@ -1,0 +1,5 @@
+.envrc
+data.json
+*.pyc
+__pycache__
+.vscode
