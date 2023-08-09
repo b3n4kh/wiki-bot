@@ -40,25 +40,25 @@ ADDITIONAL_OBJECTS = {
 def tcparser(session, jsondata, limit, capability, browser, browseredit):
     red = []
     green = []
-    testcases = []
-
-    for key, val in jsondata['results'].items():
-        testcases.append(key)
-
+    testcases = [key for key, val in jsondata['results'].items()]
     for testcase in testcases:
         limit = limit - 1
         if limit < 0:
             return
-        uri = "{}?title=Test%20Case%20Validation&pageContext={}".format(URL, testcase)
+        uri = f"{URL}?title=Test%20Case%20Validation&pageContext={testcase}"
         rawdata = session.get(uri)
         # soup = BeautifulSoup(rawdata.text)
-        if 'CC-{}'.format(capability) in rawdata.text:
+        if f'CC-{capability}' in rawdata.text:
             red.append(testcase)
             print(colored(uri, 'red'))
-            if browser or browseredit:
-                browseruri = "{}?title={}".format(URL, testcase)
+            if browser:
+                browseruri = f"{URL}?title={testcase}"
                 if browseredit:
-                    browseruri = browseruri + "&action=formedit"
+                    browseruri += "&action=formedit"
+                call(["xdg-open", browseruri])
+
+            elif browseredit:
+                browseruri = f"{URL}?title={testcase}&action=formedit"
                 call(["xdg-open", browseruri])
 
         else:
@@ -71,9 +71,10 @@ def flattenjson(jsondata):
         json.dump(jsondata, outfile)
     data = []
     for key, values in jsondata['results'].items():
-        consumers = []
-        for consumer in values['printouts']['Consumers']:
-            consumers.append(consumer['fulltext'])
+        consumers = [
+            consumer['fulltext']
+            for consumer in values['printouts']['Consumers']
+        ]
         data.append({"name": key, "consumers": consumers})
     with open('static/consumed.json', 'w') as outfile:
         json.dump({"data": data}, outfile)
@@ -84,40 +85,39 @@ def search(session, objective, consumed, limit, status, provided, capability, ad
     search_base = '[[Category:Test Cases]]'
 
     if consumed:
-        search_consumer = ' [[Is consumed by::~*CC-{}*]]'.format(capability)
+        search_consumer = f' [[Is consumed by::~*CC-{capability}*]]'
     if provided:
-        search_consumer = ' [[Is provided by::~*CC-{}*]]'.format(capability)
+        search_consumer = f' [[Is provided by::~*CC-{capability}*]]'
     if consumed and provided:
         search_consumer = ' [[Is consumed by::~*CC-{0}*]] [[Is provided by::~*CC-{0}*]]'.format(capability)
     logger.debug(search_consumer)
 
     unqoute_search = search_base
     if status:
-        search_status = ' [[Test case status::{}]]'.format(status)
+        search_status = f' [[Test case status::{status}]]'
         unqoute_search += search_status
     try:
         unqoute_search += search_consumer
     except NameError:
         pass
     if objective:
-        search_objective = ' [[Focus area objectives::~*Objective ' + objective + ' @ FMNCS Focus Area*]]'
+        search_objective = f' [[Focus area objectives::~*Objective {objective} @ FMNCS Focus Area*]]'
         unqoute_search += search_objective
 
     if additional_objects:
         additional_string = '&po='
         for obj in additional_objects:
-            additional_string += '?{}%0D'.format(obj)
+            additional_string += f'?{obj}%0D'
         unqoute_search += additional_string
 
     unqoute_search += '&p[format]=json&p[mainlabel]=TC'
 
-    uri = "{}?{}&q={}".format(URL, base, unqoute_search)
+    uri = f"{URL}?{base}&q={unqoute_search}"
 
     logger.info(uri)
     rawdata = session.get(uri)
     try:
-        jsondata = rawdata.json()
-        return jsondata
+        return rawdata.json()
     except ValueError:
         logger.error(colored("Empty Resultset Returned", 'red'))
         return None
@@ -131,7 +131,7 @@ class Session(object):
         path = "Main_Page"
         s = requests.Session()
         s.auth = (user, password)
-        login = s.get('{}/{}'.format(host, path))
+        login = s.get(f'{host}/{path}')
         self.session = s
         logger.debug(login.cookies)
 
